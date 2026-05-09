@@ -96,10 +96,24 @@ def chat(payload: ChatRequest):
 
     if "english" in enriched_query and (" us" in enriched_query or "us" in enriched_query or "usa" in enriched_query):
         enriched_query += " spoken english usa svar us"
+    # Enrich for high-volume screening signals
+    if "screen" in enriched_query or "screening" in enriched_query:
+        enriched_query += " high-volume high volume"
+    # Enrich for entry-level signals to prioritise foundation/graduate tests
+    if "entry" in enriched_query or "entry level" in enriched_query or "graduate" in enriched_query:
+        enriched_query += " entry-level graduate foundation"
 
     logger.debug("search_query: %s", enriched_query)
-    matches = search_catalog(enriched_query, catalog, top_k=5)
+    # Request up to 10 matches (spec requires 1-10 recommendations when enough context)
+    matches = search_catalog(enriched_query, catalog, top_k=10)
     recommendations = build_recommendations(matches)
+
+    # Enforce the assignment rule: recommendations must be between 1 and 10.
+    # If none found, we ask for clarification above. If more than 10 (shouldn't
+    # happen) clamp to 10 for safety.
+    if recommendations and (len(recommendations) > 10 or len(recommendations) < 1):
+        logger.debug("adjusting recommendations count from %d", len(recommendations))
+        recommendations = recommendations[:10]
 
     if not recommendations:
         return ChatResponse(

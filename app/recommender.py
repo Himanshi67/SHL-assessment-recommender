@@ -38,6 +38,16 @@ SYNONYMS = {
     "spoken english": "spoken english",
 }
 
+# Aliases mapping for common shorthand -> canonical product title fragments
+ALIAS_MAP = {
+    "opq": "occupational personality questionnaire opq32r",
+    "gsa": "global skills assessment",
+    "contact center": "contact center call simulation",
+    "contact centre": "contact center call simulation",
+    "coding": "smart interview live coding",
+    "svar": "svar - spoken english",
+}
+
 PREFERENCE_HINTS = {
     "technical",
     "coding",
@@ -383,12 +393,18 @@ def score_catalog_item(query: str, item: Dict) -> int:
     name_lower = normalize_text(name_text)
     q_lower = normalize_text(query)
     if name_lower and name_lower in q_lower:
-        score += 25
+        score += 40
+
+    # Heavy boost when query contains a known alias that maps to this product
+    for alias, canonical in ALIAS_MAP.items():
+        if alias in q_lower:
+            if canonical in name_lower:
+                score += 60
 
     # Partial substring boosts (e.g., 'opq', 'svar', 'spoken english')
     for nt in name_tokens:
         if nt in q_tokens:
-            score += 10
+            score += 12
 
     q = normalize_text(query)
 
@@ -464,6 +480,19 @@ def search_catalog(query: str, catalog: List[Dict], top_k: int = 5) -> List[Dict
         name_text = str(item.get("name", ""))
         tags_text = str(item.get("tags", ""))
 
+        # Fallback exact-title safety: if the user mentioned the exact item name
+        # or an alias that maps to it, give it an enormous boost so it ranks top.
+        q_lower = normalize_text(query)
+        name_lower = normalize_text(name_text)
+        skip_item = False
+        for alias, canonical in ALIAS_MAP.items():
+            if alias in q_lower and canonical in name_lower:
+                scored.append((9999, 1, name_lower, item))
+                skip_item = True
+                break
+        if skip_item:
+            continue
+
         if requested_level and not level_matches(requested_level, job_levels_text):
             continue
 
@@ -493,7 +522,9 @@ def search_catalog(query: str, catalog: List[Dict], top_k: int = 5) -> List[Dict
 
         # Small penalty for generic 'solution' pages to prefer specific assessment items
         if "solution" in name_lower or "solution" in tags_lower:
-            score -= 6
+                # Penalize generic solution pages heavily unless exact match
+                if not (name_lower and name_lower in q_lower):
+                    score -= 20
 
         # exact name match indicator for deterministic tie-breaking
         q_lower = normalize_text(query)
