@@ -1,4 +1,5 @@
 import re
+import logging
 from typing import List, Dict, Tuple
 
 ROLE_HINTS = {
@@ -47,6 +48,8 @@ ALIAS_MAP = {
     "coding": "smart interview live coding",
     "svar": "svar - spoken english",
 }
+
+logger = logging.getLogger("shl_recommender.recommender")
 
 PREFERENCE_HINTS = {
     "technical",
@@ -181,26 +184,32 @@ def should_ask_clarification(messages: List[dict]) -> bool:
     full_context = combine_user_context(messages)
 
     if not full_context:
+        logger.debug("should_ask_clarification: empty full_context -> True")
         return True
 
     if not has_role_context(full_context):
+        logger.debug("should_ask_clarification: role missing -> True")
         return True
 
     # Role-specific clarification first
     if is_contact_center_context(full_context):
         if not has_language_context(full_context):
+            logger.debug("should_ask_clarification: contact-center and language missing -> True")
             return True
         if "english" in full_context.lower() and not has_english_variant_context(
             full_context
         ):
+            logger.debug("should_ask_clarification: english variant missing -> True")
             return True
 
     # Generic clarification fallback
     if not has_seniority_context(full_context) and not has_preference_context(
         full_context
     ):
+        logger.debug("should_ask_clarification: seniority & preference missing -> True")
         return True
 
+    logger.debug("should_ask_clarification: all slots present -> False")
     return False
 
 

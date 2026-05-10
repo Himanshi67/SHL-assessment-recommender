@@ -36,6 +36,9 @@ def chat(payload: ChatRequest):
     latest_user_message = extract_latest_user_message(messages)
     full_user_context = combine_user_context(messages)
 
+    logger.debug("latest_user_message: %s", latest_user_message)
+    logger.debug("full_user_context: %s", full_user_context)
+
     # Build the LLM prompt we would send (and log it). This ensures the prompt
     # explicitly instructs the model to review the full conversation history
     # and not ask questions already answered.
@@ -71,6 +74,16 @@ def chat(payload: ChatRequest):
     preference_present = has_preference_context(full_user_context)
     language_present = has_language_context(full_user_context)
     english_variant_present = has_english_variant_context(full_user_context)
+
+    logger.debug(
+        "slots -> role: %s, seniority: %s, preference: %s, language: %s, english_variant: %s",
+        role_present,
+        seniority_present,
+        preference_present,
+        language_present,
+        english_variant_present,
+    )
+    logger.debug("should_ask_clarification -> %s", clarifying_needed)
 
     can_search = False
     if role_present and (seniority_present or preference_present):
