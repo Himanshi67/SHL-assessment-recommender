@@ -1,6 +1,6 @@
 from fastapi import FastAPI
-from app.routers.health import router as health_router
-from app.routers.chat import router as chat_router
+from .routers.health import router as health_router
+from .routers.chat import router as chat_router
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
