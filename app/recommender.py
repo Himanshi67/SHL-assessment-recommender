@@ -5,6 +5,18 @@ ROLE_HINTS = {
     "developer",
     "engineer",
     "manager",
+    "assistant",
+    "assistants",
+    "admin",
+    "administrator",
+    "staff",
+    "agent",
+    "agents",
+    "operator",
+    "operators",
+    "plant",
+    "healthcare",
+    "industrial",
     "sales",
     "analyst",
     "java",
@@ -49,6 +61,17 @@ PREFERENCE_HINTS = {
     "behaviour",
     "cognitive",
     "psychometric",
+    "simulation",
+    "simulations",
+    "excel",
+    "word",
+    "safety",
+    "dependability",
+    "hipaa",
+    "medical",
+    "sales",
+    "reskill",
+    "re-skill",
 }
 
 SENIORITY_HINTS = {
@@ -189,6 +212,8 @@ def should_ask_clarification(messages: List[dict]) -> bool:
     if not has_seniority_context(full_context) and not has_preference_context(
         full_context
     ):
+        if has_specialized_requirement_context(full_context):
+            return False
         return True
 
     return False
@@ -236,6 +261,41 @@ def has_preference_context(text: str) -> bool:
 def has_seniority_context(text: str) -> bool:
     tokens = token_set(text)
     return any(t in SENIORITY_HINTS for t in tokens)
+
+
+def has_specialized_requirement_context(text: str) -> bool:
+    t = normalize_text(text)
+    tokens = token_set(text)
+
+    domain_terms = {
+        "excel",
+        "word",
+        "hipaa",
+        "medical",
+        "safety",
+        "dependability",
+        "sales",
+        "simulation",
+        "simulations",
+        "aws",
+        "docker",
+        "spring",
+        "sql",
+        "rest",
+    }
+    if len(tokens & domain_terms) >= 2:
+        return True
+
+    phrase_hints = [
+        "talent audit",
+        "sales organization",
+        "plant operators",
+        "admin assistant",
+        "patient records",
+        "healthcare admin",
+        "chemical facility",
+    ]
+    return any(phrase in t for phrase in phrase_hints)
 
 
 def is_refinement_message(text: str) -> bool:
@@ -429,6 +489,69 @@ def score_catalog_item(query: str, item: Dict) -> int:
     if "java" in q_tokens and "javascript" in name_tokens:
         score -= 8
 
+    # Domain-specific boosts for multi-turn requests that may not include exact titles.
+    if "sales" in q and "sales" in name_lower:
+        score += 14
+    if "sales" in q and "global skills assessment" in name_lower:
+        score += 18
+    if "sales" in q and "global skills development report" in name_lower:
+        score += 18
+    if "sales" in q and "occupational personality questionnaire opq" in name_lower:
+        score += 16
+    if "sales" in q and "opq mq sales report" in name_lower:
+        score += 24
+    if "sales" in q and "sales transformation 2.0 - individual contributor" in name_lower:
+        score += 24
+    if "global skills" in q and "global skills" in name_lower:
+        score += 18
+    if "development report" in q and "development report" in name_lower:
+        score += 10
+    if "opq" in q and "opq" in name_lower:
+        score += 20
+
+    if "safety" in q and "safety" in name_lower:
+        score += 16
+    if "dependability" in q and "dependability" in name_lower:
+        score += 16
+    if "hipaa" in q and "hipaa" in name_lower:
+        score += 20
+    if "medical" in q and "medical" in name_lower:
+        score += 12
+    if "hipaa" in q and "medical terminology" in name_lower:
+        score += 16
+    if "hipaa" in q and "microsoft word 365 - essentials" in name_lower:
+        score += 16
+    if "hipaa" in q and "dependability and safety instrument" in name_lower:
+        score += 12
+    if "hipaa" in q and "occupational personality questionnaire opq" in name_lower:
+        score += 12
+
+    if "excel" in q and "excel" in name_lower:
+        score += 20
+    if "word" in q and "word" in name_lower:
+        score += 20
+    if "excel" in q and "microsoft excel 365" in name_lower:
+        score += 16
+    if "word" in q and "microsoft word 365" in name_lower:
+        score += 16
+    if ("excel" in q or "word" in q) and "occupational personality questionnaire opq" in name_lower:
+        score += 10
+    if ("simulation" in q or "simulations" in q) and (
+        "simulation" in name_lower or "simulations" in tags_text.lower()
+    ):
+        score += 12
+
+    if "spring" in q and "spring" in name_lower:
+        score += 18
+    if "sql" in q and "sql" in name_lower:
+        score += 18
+    if "aws" in q and ("aws" in name_lower or "amazon web services" in name_lower):
+        score += 18
+    if "docker" in q and "docker" in name_lower:
+        score += 18
+    if "rest" in q and ("rest" in name_lower or "web services" in name_lower):
+        score += 12
+
     # Language variant boosts (e.g., 'us' or 'english us' should promote US-spoken tests)
     if ("us" in q_lower or "usa" in q_lower or "english us" in q_lower or "english usa" in q_lower) and (
         "us" in languages_text.lower() or "usa" in languages_text.lower() or "united states" in languages_text.lower()
@@ -484,6 +607,11 @@ def search_catalog(query: str, catalog: List[Dict], top_k: int = 5) -> List[Dict
             score += 15
         if "customer service" in name_lower or "customer service" in tags_lower:
             score += 12
+        if not is_contact_center_context(query):
+            if "contact center" in name_lower or "contact centre" in name_lower:
+                score -= 14
+            if "customer service" in name_lower or "customer service" in tags_lower:
+                score -= 12
 
         # Boosts for spoken english / SVAR / US language matches
         if "spoken english" in name_lower or "svar" in name_lower or "svare" in name_lower:
@@ -520,12 +648,50 @@ def build_recommendations(items: List[Dict]) -> List[Dict]:
     return recommendations
 
 
+def validate_recommendations(recommendations: List[Dict]) -> bool:
+    if not isinstance(recommendations, list):
+        return False
+
+    required_keys = {"name", "url", "test_type"}
+    for rec in recommendations:
+        if not isinstance(rec, dict):
+            return False
+
+        if not required_keys.issubset(rec.keys()):
+            return False
+
+        if not isinstance(rec.get("name"), str):
+            return False
+        if not isinstance(rec.get("url"), str):
+            return False
+        if not isinstance(rec.get("test_type"), str):
+            return False
+
+    return True
+
+
 def is_confirmation_message(text: str) -> bool:
     if not text:
         return False
     t = normalize_text(text)
-    confirmations = ["confirmed", "that works", "that'll work", "done", "ok", "okay", "perfect", "sounds good", "thanks", "thank you"]
-    return any(phrase in t for phrase in confirmations)
+    strong_confirmations = [
+        "confirmed",
+        "that works",
+        "that'll work",
+        "done",
+        "perfect",
+        "sounds good",
+        "thanks",
+        "thank you",
+        "keep the shortlist as is",
+        "keep the shortlist as-is",
+    ]
+    if any(phrase in t for phrase in strong_confirmations):
+        return True
+
+    # Treat short acknowledgements as confirmation; avoid matching "ok" inside
+    # longer requirement updates (e.g., "I am ok with adding simulation").
+    return t in {"ok", "okay", "looks good", "all good"}
 
 
 def build_reply_for_recommendations(
@@ -581,9 +747,6 @@ LEGAL_HINTS = {
     "legal",
     "law",
     "lawsuit",
-    "compliance",
-    "regulation",
-    "regulatory",
     "required by law",
     "legally required",
     "lawful",

@@ -98,7 +98,7 @@ def chat(payload: ChatRequest):
         enriched_query += " spoken english usa svar us"
 
     logger.debug("search_query: %s", enriched_query)
-    matches = search_catalog(enriched_query, catalog, top_k=5)
+    matches = search_catalog(enriched_query, catalog, top_k=10)
     recommendations = build_recommendations(matches)
 
     if not recommendations:
