@@ -2,7 +2,7 @@ import re
 from typing import List, Dict, Tuple
 
 ROLE_HINTS = {
-    "developer",
+     "developer",
     "engineer",
     "manager",
     "assistant",
@@ -691,9 +691,9 @@ def search_catalog(query: str, catalog: List[Dict], top_k: int = 5) -> List[Dict
             if "docker (new)" in name_lower:
                 score += 75
             if "shl verify interactive g+" in name_lower:
-                score += 70
+                score += 130
             if "occupational personality questionnaire opq" in name_lower:
-                score += 70
+                score += 95
 
             if "core java (entry level)" in name_lower:
                 score -= 60
@@ -705,6 +705,12 @@ def search_catalog(query: str, catalog: List[Dict], top_k: int = 5) -> List[Dict
                 score -= 45
             if "java web services" in name_lower:
                 score -= 30
+            if "oracle pl/sql" in name_lower or "automata - sql" in name_lower:
+                score -= 70
+            if "microsoft sql server" in name_lower:
+                score -= 65
+            if "java design patterns" in name_lower:
+                score -= 20
             if "drop rest" in q_context and "restful web services" in name_lower:
                 score -= 80
 
