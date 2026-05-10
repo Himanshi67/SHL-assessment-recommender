@@ -1,7 +1,9 @@
 from app.recommender import (
+    build_recommendations,
+    detect_requested_seniority,
     search_catalog,
     should_ask_clarification,
-    detect_requested_seniority,
+    validate_recommendations,
 )
 
 
@@ -27,7 +29,7 @@ def test_search_catalog_basic_match():
         {
             "entity_id": "1",
             "name": "Data Entry Test",
-            "url": "https://example.com/test",
+            "url": "https://www.shl.com/products/product-catalog/view/data-entry-test/",
             "description": "Data entry skills assessment",
             "tags": "Knowledge & Skills",
             "test_type": "Knowledge & Skills",
@@ -35,11 +37,9 @@ def test_search_catalog_basic_match():
             "languages": "English (USA)",
         }
     ]
-
-    res = search_catalog("data entry", catalog, top_k=3)
-
-    assert len(res) >= 1
-    assert res[0]["entity_id"] == "1"
+    results = search_catalog("data entry", catalog, top_k=3)
+    assert len(results) >= 1
+    assert results[0]["entity_id"] == "1"
 
 
 def test_search_catalog_respects_top_k():
@@ -47,7 +47,7 @@ def test_search_catalog_respects_top_k():
         {
             "entity_id": "1",
             "name": "Data Entry Test",
-            "url": "https://example.com/1",
+            "url": "https://www.shl.com/products/product-catalog/view/data-entry-test/",
             "description": "Data entry assessment",
             "tags": "Knowledge & Skills",
             "test_type": "Knowledge & Skills",
@@ -57,7 +57,7 @@ def test_search_catalog_respects_top_k():
         {
             "entity_id": "2",
             "name": "Data Entry Simulation",
-            "url": "https://example.com/2",
+            "url": "https://www.shl.com/products/product-catalog/view/data-entry-simulation/",
             "description": "Simulation for data entry",
             "tags": "Simulations",
             "test_type": "Simulations",
@@ -67,7 +67,7 @@ def test_search_catalog_respects_top_k():
         {
             "entity_id": "3",
             "name": "Data Entry Operator Test",
-            "url": "https://example.com/3",
+            "url": "https://www.shl.com/products/product-catalog/view/data-entry-operator-test/",
             "description": "Operator assessment for data entry work",
             "tags": "Knowledge & Skills",
             "test_type": "Knowledge & Skills",
@@ -75,10 +75,8 @@ def test_search_catalog_respects_top_k():
             "languages": "English (USA)",
         },
     ]
-
-    res = search_catalog("data entry", catalog, top_k=2)
-
-    assert len(res) == 2
+    results = search_catalog("data entry", catalog, top_k=2)
+    assert len(results) == 2
 
 
 def test_search_catalog_filters_by_mid_level():
@@ -86,7 +84,7 @@ def test_search_catalog_filters_by_mid_level():
         {
             "entity_id": "1",
             "name": "Core Java Entry Level (New)",
-            "url": "https://example.com/1",
+            "url": "https://www.shl.com/products/product-catalog/view/core-java-entry-level-new/",
             "description": "Java basics assessment",
             "tags": "Knowledge & Skills",
             "test_type": "Knowledge & Skills",
@@ -96,7 +94,7 @@ def test_search_catalog_filters_by_mid_level():
         {
             "entity_id": "2",
             "name": "Java Design Patterns (New)",
-            "url": "https://example.com/2",
+            "url": "https://www.shl.com/products/product-catalog/view/java-design-patterns-new/",
             "description": "Java design patterns for professional developers",
             "tags": "Knowledge & Skills",
             "test_type": "Knowledge & Skills",
@@ -104,8 +102,45 @@ def test_search_catalog_filters_by_mid_level():
             "languages": "English (USA)",
         },
     ]
+    results = search_catalog("Java developer mid-level technical", catalog, top_k=5)
+    assert len(results) >= 1
+    assert all("Mid-Professional" in item["job_levels"] for item in results)
 
-    res = search_catalog("Java developer mid-level technical", catalog, top_k=5)
 
-    assert len(res) >= 1
-    assert all("Mid-Professional" in item["job_levels"] for item in res)
+def test_build_recommendations_skips_invalid_urls_and_duplicates():
+    items = [
+        {
+            "name": "A",
+            "url": "https://www.shl.com/products/product-catalog/view/a/",
+            "test_type": "K",
+        },
+        {
+            "name": "A duplicate",
+            "url": "https://www.shl.com/products/product-catalog/view/a/",
+            "test_type": "K",
+        },
+        {
+            "name": "Bad URL",
+            "url": "https://example.com/not-allowed",
+            "test_type": "K",
+        },
+        {
+            "name": "B",
+            "url": "https://www.shl.com/products/product-catalog/view/b/",
+            "test_type": "A",
+        },
+    ]
+    recommendations = build_recommendations(items)
+    assert len(recommendations) == 2
+    assert validate_recommendations(recommendations) is True
+
+
+def test_validate_recommendations_rejects_invalid_payload():
+    invalid = [
+        {
+            "name": "Invalid",
+            "url": "https://example.com/invalid",
+            "test_type": "K",
+        }
+    ]
+    assert validate_recommendations(invalid) is False

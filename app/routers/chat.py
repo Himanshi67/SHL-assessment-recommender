@@ -5,6 +5,7 @@ from app.catalog_loader import load_clean_catalog
 from app.recommender import (
     extract_latest_user_message,
     combine_user_context,
+    combine_message_context,
     should_ask_clarification,
     get_clarifying_question,
     is_compare_request,
@@ -12,6 +13,7 @@ from app.recommender import (
     build_comparison_reply,
     search_catalog,
     build_recommendations,
+    validate_recommendations,
     build_reply_for_recommendations,
     should_refuse,
     build_refusal_reply,
@@ -58,7 +60,13 @@ def chat(payload: ChatRequest):
         )
 
     if is_compare_request(latest_user_message):
-        compare_items = find_items_by_name(latest_user_message, catalog, top_k=2)
+        compare_query = latest_user_message
+        compare_items = find_items_by_name(compare_query, catalog, top_k=2)
+        if len(compare_items) < 2:
+            # Fallback to full history so prompts like "compare those two" can
+            # still resolve names from prior turns.
+            compare_query = combine_message_context(messages)
+            compare_items = find_items_by_name(compare_query, catalog, top_k=2)
         comparison_reply = build_comparison_reply(compare_items)
 
         return ChatResponse(reply=comparison_reply, recommendations=[], end_of_conversation=False)
@@ -121,12 +129,17 @@ def chat(payload: ChatRequest):
     matches = search_catalog(enriched_query, catalog, top_k=10)
     recommendations = build_recommendations(matches)
 
-    # Enforce the assignment rule: recommendations must be between 1 and 10.
-    # If none found, we ask for clarification above. If more than 10 (shouldn't
-    # happen) clamp to 10 for safety.
-    if recommendations and (len(recommendations) > 10 or len(recommendations) < 1):
-        logger.debug("adjusting recommendations count from %d", len(recommendations))
-        recommendations = recommendations[:10]
+    # Local safety check: recommendations must be [] or contain 1-10 unique SHL URLs.
+    if not validate_recommendations(recommendations):
+        logger.warning("Invalid recommendations after sanitization; returning clarification.")
+        return ChatResponse(
+            reply=(
+                "I need one more detail before finalizing the shortlist. "
+                "Please confirm role, seniority, and must-have skills."
+            ),
+            recommendations=[],
+            end_of_conversation=False,
+        )
 
     if not recommendations:
         return ChatResponse(
