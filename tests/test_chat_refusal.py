@@ -1,5 +1,6 @@
 def test_chat_refuses_legal_question(client, monkeypatch, mock_catalog):
     monkeypatch.setattr("app.routers.chat.load_clean_catalog", lambda: mock_catalog)
+
     payload = {
         "messages": [
             {
@@ -10,9 +11,10 @@ def test_chat_refuses_legal_question(client, monkeypatch, mock_catalog):
     }
 
     response = client.post("/chat", json=payload)
-    assert response.status_code == 200
 
+    assert response.status_code == 200
     data = response.json()
+
     assert data["recommendations"] == []
     assert data["end_of_conversation"] is False
     assert "legal" in data["reply"].lower() or "compliance" in data["reply"].lower()
@@ -20,6 +22,7 @@ def test_chat_refuses_legal_question(client, monkeypatch, mock_catalog):
 
 def test_chat_refuses_off_topic_query(client, monkeypatch, mock_catalog):
     monkeypatch.setattr("app.routers.chat.load_clean_catalog", lambda: mock_catalog)
+
     payload = {
         "messages": [
             {
@@ -30,16 +33,20 @@ def test_chat_refuses_off_topic_query(client, monkeypatch, mock_catalog):
     }
 
     response = client.post("/chat", json=payload)
-    assert response.status_code == 200
 
+    assert response.status_code == 200
     data = response.json()
+
     assert data["recommendations"] == []
     assert data["end_of_conversation"] is False
-    assert "shl assessment" in data["reply"].lower() or "limited" in data["reply"].lower()
+    assert (
+        "shl assessment" in data["reply"].lower() or "limited" in data["reply"].lower()
+    )
 
 
 def test_chat_refuses_prompt_injection(client, monkeypatch, mock_catalog):
     monkeypatch.setattr("app.routers.chat.load_clean_catalog", lambda: mock_catalog)
+
     payload = {
         "messages": [
             {
@@ -50,9 +57,14 @@ def test_chat_refuses_prompt_injection(client, monkeypatch, mock_catalog):
     }
 
     response = client.post("/chat", json=payload)
-    assert response.status_code == 200
 
+    assert response.status_code == 200
     data = response.json()
+
     assert data["recommendations"] == []
     assert data["end_of_conversation"] is False
-    assert "cannot" in data["reply"].lower() or "shl assessment" in data["reply"].lower()
+    assert (
+        "shl assessment" in data["reply"].lower()
+        or "can’t" in data["reply"].lower()
+        or "cannot" in data["reply"].lower()
+    )

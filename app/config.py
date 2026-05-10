@@ -1,26 +1,18 @@
-from pathlib import Path
-
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-
-BASE_DIR = Path(__file__).resolve().parents[1]
 
 
 class Settings(BaseSettings):
     app_name: str = Field(default="SHL Assessment Recommender", alias="APP_NAME")
     env: str = Field(default="development", alias="ENV")
     raw_catalog_path: str = Field(
-        default=str(BASE_DIR / "data/raw/shl_product_catalog.json"),
-        alias="RAW_CATALOG_PATH",
+        default="data/raw/shl_product_catalog.json", alias="RAW_CATALOG_PATH"
     )
     cleaned_json_path: str = Field(
-        default=str(BASE_DIR / "data/processed/shl_catalog_clean.json"),
-        alias="CLEANED_JSON_PATH",
+        default="data/processed/shl_catalog_clean.json", alias="CLEANED_JSON_PATH"
     )
     cleaned_csv_path: str = Field(
-        default=str(BASE_DIR / "data/processed/shl_catalog_clean.csv"),
-        alias="CLEANED_CSV_PATH",
+        default="data/processed/shl_catalog_clean.csv", alias="CLEANED_CSV_PATH"
     )
 
     model_config = SettingsConfigDict(

@@ -1,5 +1,5 @@
 from typing import List, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class Message(BaseModel):
@@ -14,16 +14,7 @@ class Recommendation(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    messages: List[Message] = Field(
-        ...,
-        examples=[
-            [
-                {"role": "user", "content": "We\'re screening 500 entry-level contact centre agents. Inbound calls, customer service focus. What should we use?"},
-                {"role": "assistant", "content": "I can help with that. Is English the operating language, and do you need a specific accent variant?"},
-                {"role": "user", "content": "English (US)."},
-            ]
-        ],
-    )
+    messages: List[Message]
 
 
 class ChatResponse(BaseModel):

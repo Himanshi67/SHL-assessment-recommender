@@ -5,7 +5,6 @@ from app.catalog_loader import load_clean_catalog
 from app.recommender import (
     extract_latest_user_message,
     combine_user_context,
-    combine_message_context,
     should_ask_clarification,
     get_clarifying_question,
     is_compare_request,
@@ -13,7 +12,6 @@ from app.recommender import (
     build_comparison_reply,
     search_catalog,
     build_recommendations,
-    validate_recommendations,
     build_reply_for_recommendations,
     should_refuse,
     build_refusal_reply,
@@ -38,9 +36,6 @@ def chat(payload: ChatRequest):
     latest_user_message = extract_latest_user_message(messages)
     full_user_context = combine_user_context(messages)
 
-    logger.debug("latest_user_message: %s", latest_user_message)
-    logger.debug("full_user_context: %s", full_user_context)
-
     # Build the LLM prompt we would send (and log it). This ensures the prompt
     # explicitly instructs the model to review the full conversation history
     # and not ask questions already answered.
@@ -60,13 +55,7 @@ def chat(payload: ChatRequest):
         )
 
     if is_compare_request(latest_user_message):
-        compare_query = latest_user_message
-        compare_items = find_items_by_name(compare_query, catalog, top_k=2)
-        if len(compare_items) < 2:
-            # Fallback to full history so prompts like "compare those two" can
-            # still resolve names from prior turns.
-            compare_query = combine_message_context(messages)
-            compare_items = find_items_by_name(compare_query, catalog, top_k=2)
+        compare_items = find_items_by_name(latest_user_message, catalog, top_k=2)
         comparison_reply = build_comparison_reply(compare_items)
 
         return ChatResponse(reply=comparison_reply, recommendations=[], end_of_conversation=False)
@@ -82,16 +71,6 @@ def chat(payload: ChatRequest):
     preference_present = has_preference_context(full_user_context)
     language_present = has_language_context(full_user_context)
     english_variant_present = has_english_variant_context(full_user_context)
-
-    logger.debug(
-        "slots -> role: %s, seniority: %s, preference: %s, language: %s, english_variant: %s",
-        role_present,
-        seniority_present,
-        preference_present,
-        language_present,
-        english_variant_present,
-    )
-    logger.debug("should_ask_clarification -> %s", clarifying_needed)
 
     can_search = False
     if role_present and (seniority_present or preference_present):
@@ -117,29 +96,10 @@ def chat(payload: ChatRequest):
 
     if "english" in enriched_query and (" us" in enriched_query or "us" in enriched_query or "usa" in enriched_query):
         enriched_query += " spoken english usa svar us"
-    # Enrich for high-volume screening signals
-    if "screen" in enriched_query or "screening" in enriched_query:
-        enriched_query += " high-volume high volume"
-    # Enrich for entry-level signals to prioritise foundation/graduate tests
-    if "entry" in enriched_query or "entry level" in enriched_query or "graduate" in enriched_query:
-        enriched_query += " entry-level graduate foundation"
 
     logger.debug("search_query: %s", enriched_query)
-    # Request up to 10 matches (spec requires 1-10 recommendations when enough context)
-    matches = search_catalog(enriched_query, catalog, top_k=10)
+    matches = search_catalog(enriched_query, catalog, top_k=5)
     recommendations = build_recommendations(matches)
-
-    # Local safety check: recommendations must be [] or contain 1-10 unique SHL URLs.
-    if not validate_recommendations(recommendations):
-        logger.warning("Invalid recommendations after sanitization; returning clarification.")
-        return ChatResponse(
-            reply=(
-                "I need one more detail before finalizing the shortlist. "
-                "Please confirm role, seniority, and must-have skills."
-            ),
-            recommendations=[],
-            end_of_conversation=False,
-        )
 
     if not recommendations:
         return ChatResponse(

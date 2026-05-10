@@ -14,7 +14,7 @@ def mock_catalog():
         {
             "entity_id": "1",
             "name": "Java Design Patterns (New)",
-            "url": "https://www.shl.com/products/product-catalog/view/java-design-patterns-new/",
+            "url": "https://example.com/java-design-patterns",
             "description": "Java design patterns for professional developers",
             "tags": "Knowledge & Skills",
             "test_type": "Knowledge & Skills",
@@ -25,7 +25,7 @@ def mock_catalog():
         {
             "entity_id": "2",
             "name": "Java Personality Profile",
-            "url": "https://www.shl.com/products/product-catalog/view/java-personality-profile/",
+            "url": "https://example.com/java-personality",
             "description": "Personality and behaviour assessment for developers",
             "tags": "Personality & Behavior",
             "test_type": "Personality & Behavior",
@@ -36,7 +36,7 @@ def mock_catalog():
         {
             "entity_id": "3",
             "name": "Java Aptitude Test",
-            "url": "https://www.shl.com/products/product-catalog/view/java-aptitude-test/",
+            "url": "https://example.com/java-aptitude",
             "description": "Aptitude and ability test for Java roles",
             "tags": "Ability & Aptitude",
             "test_type": "Ability & Aptitude",
@@ -47,7 +47,7 @@ def mock_catalog():
         {
             "entity_id": "4",
             "name": "OPQ",
-            "url": "https://www.shl.com/products/product-catalog/view/occupational-personality-questionnaire-opq32r/",
+            "url": "https://example.com/opq",
             "description": "Occupational personality questionnaire",
             "tags": "Personality & Behavior",
             "test_type": "Personality & Behavior",
@@ -58,7 +58,7 @@ def mock_catalog():
         {
             "entity_id": "5",
             "name": "GSA",
-            "url": "https://www.shl.com/products/product-catalog/view/global-skills-assessment/",
+            "url": "https://example.com/gsa",
             "description": "Global skills assessment",
             "tags": "Ability & Aptitude",
             "test_type": "Ability & Aptitude",
